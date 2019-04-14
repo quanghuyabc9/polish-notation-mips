@@ -1,2 +1,4 @@
 # Project_MIPS
-Đồ án kiến trúc máy tính và hợp ngữ MIPS
+
+The project of architecture computer and assembly language
+This project is owed by QuangHuy team
