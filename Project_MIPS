@@ -1,0 +1,158 @@
+.data
+infix: .space 256
+postfix: .space 256
+prefix: .space 256
+.text
+.globl main
+
+main:
+	la $a0,infix
+	li $a1,256
+	li $v0,8
+	syscall
+	la $v0,postfix
+
+	jal InfixtoPostfix
+
+	add $a0,$v0,$0
+	li $v0,4
+	syscall
+	j Endmain
+InfixtoPostfix:# This function use $a0 as argument and $v0 as value to return
+	# $a0: infix
+	# $v0: posfix
+	add $t5,$v0,$0 # $t5 is postfix
+	addi $sp,$sp,-256 # initializing empty stack
+	li $t0,0 # index of stack
+	li $t1,-1 # position of infix
+	li $t4,256 # Const
+	# Scanning infix
+	While_ItoP:
+		addi $t1,$t1,1
+		# $t2 is used for saving char
+		addi $t2,$t1,0
+		add $t2,$t2,$a0
+		lb $t2,0($t2)
+
+		beq $t2,'\n',EOI # Scan end of infix --> pop all operator to postfix
+		beq $t2,'(',LeftBracket
+		beq $t2,')',RightBracket
+		ble $t2,'/',Operator
+		bge $t2,'0',Operand
+	LeftBracket: 
+		# Push 
+		addi $t0,$t0,1
+		sub $t3,$t4,$t0 # $t3 is position to push in stack
+		add $t3,$t3,$sp
+		sb $t2,0($t3)
+		j While_ItoP
+	RightBracket:
+		# Pop until reaching LeftBracket
+		Loop_RB:
+			sub $t3,$t4,$t0 
+			add $t3,$t3,$sp
+			lb $t3,0($t3)
+			beq $t3,'(',Break_Loop_RB
+			# Save that char to posfix
+			# Pop
+			addi $t7,$0,' '
+			sb $t7,0($t5)
+			add $t5,$t5,1
+
+			sb $t3,0($t5)
+			add $t5,$t5,1
+			addi $t0,$t0,-1
+			j Loop_RB
+		Break_Loop_RB:
+			addi $t0,$t0,-1
+			j While_ItoP
+	Operator:
+		addi $t7,$0,' '
+		sb $t7,0($t5)
+		add $t5,$t5,1
+		Loop_Operator:
+			# if stack is empty
+			beq $t0,0,PushOperator
+			    # $t3 is element of top of stack
+			sub $t3,$t4,$t0 
+			add $t3,$t3,$sp
+			lb $t3,0($t3)
+			add $t6,$t3,$0
+
+			addi $sp,$sp,-4
+			sw $ra,4($sp)
+
+			jal Precedence
+			add $t8,$t6,$0 # $t8 is precedence of element of top stack
+			    # $t2 is token
+			add $t6,$t2,$0
+			jal Precedence
+			add $t7,$t6,$0 # $t7 is precedence of token
+
+			lw $ra,4($sp)
+			addi $sp,$sp,4
+
+			# If token have more Precedence than Element in Top of stack
+			bgt $t7,$t8,PushOperator 
+			# If token have less or equal Precedence than Element in Top of stack
+			# Pop and save in Posfix
+			sb $t3,0($t5)
+			add $t5,$t5,1
+			addi $t0,$t0,-1
+			
+			addi $t7,$0,' '
+			sb $t7,0($t5)
+			add $t5,$t5,1
+
+			j Loop_Operator	
+			
+		PushOperator:
+			
+			addi $t0,$t0,1
+		        sub $t3,$t4,$t0 # $t3 is position to push in stack
+		        add $t3,$t3,$sp
+		        sb $t2,0($t3)
+			j While_ItoP 
+		
+	Operand:
+		sb $t2,0($t5)
+		add $t5,$t5,1
+		j While_ItoP
+			
+		Precedence:
+			beq $t6,'(',Prece0
+			beq $t6,'+',Prece1
+			beq $t6,'-',Prece1
+			beq $t6,'*',Prece2
+			beq $t6,'/',Prece2
+			Prece0: li $t6,0
+			jr $ra
+			Prece1:	li $t6,1
+			jr $ra
+			Prece2: li $t6,2
+			jr $ra
+	
+	EOI:
+		Loop_EOI:
+			beq $t0,0,Break_EOI
+			#Pop stack
+			addi $t7,$0,' '
+			sb $t7,0($t5)
+			add $t5,$t5,1
+
+			sub $t3,$t4,$t0 
+			add $t3,$t3,$sp
+			lb $t3,0($t3)
+			sb $t3,0($t5)
+			add $t5,$t5,1
+			addi $t0,$t0,-1	
+			j Loop_EOI
+		Break_EOI:
+			jr $ra
+	
+	
+
+Endmain:
+
+
+
