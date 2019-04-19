@@ -3,6 +3,8 @@ infix: .space 256
 postfix: .space 256
 prefix: .space 256
 number: .space 256 # use for store a number
+postfixfile: .asciiz "postfix.txt"
+prefixfile: .asciiz "prefix.txt"
 .text
 .globl main
 
@@ -19,6 +21,7 @@ main:
 	#jal Modifie
 	li $v0,4
 	syscall
+	j WriteFile
 	j Endmain
 
 # InfixtoPostfix:
@@ -381,7 +384,58 @@ Modifie:
 		lw $s0,28($sp)
 		addi $sp,$sp,32
 
-		jr $ra		
+		jr $ra	
+
+WriteFile:
+#write postfix file
+
+	la $a0, postfixfile
+
+	#open file for write-only
+	li $v0, 13
+	addi $a1, $0, 1
+	addi $a2, $0, 0
+	syscall
+
+	add $s0, $v0, $0
+
+	#write file
+	li $v0, 15
+	add $a0, $s0, $0
+	la $a1, postfix
+	li $a2, 256
+	syscall
+
+	#close file
+	li $v0, 16
+	move $a0, $s0
+	syscall
+
+#write prefix file
+
+	la $a0, prefixfile
+
+	#open file for write-only
+	li $v0, 13
+	addi $a1, $0, 1
+	addi $a2, $0, 0
+	syscall
+
+	add $s0, $v0, $0
+
+	#write file
+	li $v0, 15
+	add $a0, $s0, $0
+	la $a1, prefix
+	li $a2, 256
+	syscall
+
+	#close file
+	li $v0, 16
+	move $a0, $s0
+	syscall
+#
+	jr $ra
 Endmain:
 
 
