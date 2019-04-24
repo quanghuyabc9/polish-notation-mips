@@ -9,28 +9,39 @@ prefixfile: .asciiz "prefix.txt"
 .globl main
 
 main:
-	#la $a0,infix
-	#li $a1,256
-	#li $v0,8
-	#syscall
-	#jal InfixtoPrefix
-	#addi $a0,$v0,0
-	#li $v0,4
-	#syscall
-	#j WriteFile
-	#j Endmain
+#--------------------------------------------------------
+	# Infix->Prefix
+
 	la $a0,infix
 	li $a1,256
 	li $v0,8
 	syscall
-	la $v0,postfix
-	jal InfixtoPostfix
-	la $a0,postfix
-	jal PostfixtoValue
-	addi $a0,$v0,0
-	li $v0,1
+
+	la $v0,prefix
+	jal InfixtoPrefix
+
+	la $a0,prefix
+	li $v0,4
 	syscall
 	j Endmain
+#--------------------------------------------------------
+	# Infix->Postfix->Value
+
+	#la $a0,infix
+	#li $a1,256
+	#li $v0,8
+	#syscall
+	#la $v0,postfix
+	#jal InfixtoPostfix
+	#la $a0,postfix
+	#jal PostfixtoValue
+	#addi $a0,$v0,0
+	#li $v0,1
+	#syscall
+	#j Endmain
+
+#************************FUNCTION*************************
+
 
 # InfixtoPostfix:
 # $a0 is our input infix, $v0 is input postfix
@@ -182,7 +193,8 @@ InfixtoPostfix:
 			addi $sp,$sp,32
 			
 			jr $ra
-#Precedence:
+
+# Precedence:
 # $a0 is input character
 # $v0 is the precedence of $a0
 Precedence:
@@ -197,26 +209,28 @@ Precedence:
 	jr $ra
 	Prece2: li $v0,2
 	jr $ra
-# InfixtoPostfix:
-# $a0 is our input infix
-# $v0 returns the prefix
+
+# InfixtoPrefix:
+# $a0 is our input infix, $v0 is input prefix
 InfixtoPrefix:
-	la $v0,prefix
 	addi $sp,$sp,-8
 	sw $ra,4($sp)
 	sw $v0,0($sp)
+
 	jal ReverseString
 	jal Modifie
+
 	lw $v0,0($sp)
-	addi $sp,$sp,4
 	jal InfixtoPostfix 
-	addi $a0,$v0,0
+	la $a0,prefix
 	jal ReverseString
 	jal Modifie
-	addi $v0,$a0,0
-	lw $ra,0($sp)
-	addi $sp,$sp,4
+
+	lw $ra,4($sp)
+
+	addi $sp,$sp,8
 	jr $ra
+
 #Strlen:
 # $a0 is our input string
 # $v0 returns the length
@@ -238,6 +252,7 @@ Strlen:
 		lw $s0,4($sp)
 		addi $sp,$sp,8
 		jr $ra
+
 # ReverseString:
 # $a0 is our input string and that string will be reversed
 ReverseString:
@@ -294,7 +309,9 @@ ReverseString:
 		addi $sp,$sp,24		
 
 		jr $ra
-# Modifie:'(' become ')', ')' become '(', reverse number 
+
+# Modifie:
+# '(' become ')', ')' become '(', reverse number 
 # $a0 is our input string and that string will be modified, a1 is string number
 Modifie:
 	addi $sp,$sp,-32
@@ -443,6 +460,7 @@ WriteFile:
 	syscall
 #
 	jr $ra
+
 # PostfixtoValue
 # $a0 is input string
 # $v0 is result (integer)
@@ -605,7 +623,8 @@ PostfixtoValue:
 			lw $s0,24($sp)
 			addi $sp,$sp,28
 
-			jr $ra			
+			jr $ra		
+	
 # ToInt
 # $a0 is input number(string)
 # $v0 is output number (integer) (32 bits)
