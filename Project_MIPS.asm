@@ -9,36 +9,44 @@ prefixfile: .asciiz "prefix.txt"
 .globl main
 
 main:
-#--------------------------------------------------------
-	# Infix->Prefix
 
 	la $a0,infix
 	li $a1,256
 	li $v0,8
 	syscall
+#--------------------------------------------------------
+	# Infix->Postfix->Value
+	la $v0,postfix
+	jal InfixtoPostfix
 
+	la $a0,postfix
+	li $v0,4
+	syscall
+
+	jal PostfixtoValue
+	addi $a0,$v0,0
+	li $v0,1
+	syscall
+
+	li $a0,'\n'
+	li $v0,11
+	syscall
+#--------------------------------------------------------
+	# Infix->Prefix->Value
+	la $a0,infix
 	la $v0,prefix
+
 	jal InfixtoPrefix
 
 	la $a0,prefix
 	li $v0,4
 	syscall
+	
+	jal PrefixtoValue
+	addi $a0,$v0,0
+	li $v0,1
+	syscall
 	j Endmain
-#--------------------------------------------------------
-	# Infix->Postfix->Value
-
-	#la $a0,infix
-	#li $a1,256
-	#li $v0,8
-	#syscall
-	#la $v0,postfix
-	#jal InfixtoPostfix
-	#la $a0,postfix
-	#jal PostfixtoValue
-	#addi $a0,$v0,0
-	#li $v0,1
-	#syscall
-	#j Endmain
 
 #************************FUNCTION*************************
 
@@ -312,7 +320,7 @@ ReverseString:
 
 # Modifie:
 # '(' become ')', ')' become '(', reverse number 
-# $a0 is our input string and that string will be modified, a1 is string number
+# $a0 is our input string and that string will be modified
 Modifie:
 	addi $sp,$sp,-32
 	sw $s0,28($sp)
@@ -458,7 +466,7 @@ WriteFile:
 	li $v0, 16
 	move $a0, $s0
 	syscall
-#
+
 	jr $ra
 
 # PostfixtoValue
@@ -656,6 +664,181 @@ ToInt:
 		lw $s0,8($sp)
 		addi $sp,$sp,12
 		jr $ra
+
+# PrefixtoValue
+# $a0 is input prefix
+# $v0 is value integer
+PrefixtoValue:
+	addi $sp,$sp,-4
+	sw $ra,0($sp)
+
+	# reverse prefix
+	jal ReverseString
+	jal Modifie
+
+	lw $ra,0($sp)
+	addi $sp,$sp,4
+	
+	addi $sp,$sp,-28
+	sw $s0,24($sp)
+	sw $s1,20($sp)
+	sw $s2,16($sp)
+	sw $s3,12($sp)
+	sw $s4,8($sp)
+	sw $s5,4($sp)
+	sw $s6,0($sp)
+
+	li $s4, 1024 # const
+	addi $sp,$sp,-1024
+	li $s0,0 # index of stack, The number of integer in stack
+	li $s1,0 # index for scan
+	la $s2,number
+	Loop_PrefixtoValue:
+		add $s3,$s1,$a0
+		lb $s3,0($s3)
+		beq $s3,'\n',Break_Loop_PrefixtoValue
+		bgt $s3,'/',NextCase_Loop_PrefixtoValue
+		blt $s3,'*',NextCase_Loop_PrefixtoValue
+		j Case_Operator_PrtoV
+		NextCase_Loop_PrefixtoValue:
+		blt $s3,'0',NextCase2_Loop_PrefixtoValue
+		bgt $s3,'9',NextCase2_Loop_PrefixtoValue
+		j Case_Operand_PrtoV
+		NextCase2_Loop_PrefixtoValue:
+		addi $s1,$s1,1
+		j Loop_PrefixtoValue
+		# use $s5->
+		Case_Operator_PrtoV:
+			# pop 2 numbers
+			sll $s5,$s0,2 # $s5=$s0*4
+			sub $s5,$s4,$s5
+			add $s5,$s5,$sp
+			lw $s5,0($s5)
+
+			addi $s6,$s5,0 # $s6 number 1
+
+			addi $s0,$s0,-1
+
+			sll $s5,$s0,2 # $s5=$s0*4
+			sub $s5,$s4,$s5
+			add $s5,$s5,$sp
+			lw $s5,0($s5) # $s5 numer 2
+
+			addi $s0,$s0,-1
+
+			beq $s3,'+',Case_Operator_PrtoV_Add
+			beq $s3,'-',Case_Operator_PrtoV_Sub
+			beq $s3,'*',Case_Operator_PrtoV_Mult
+			beq $s3,'/',Case_Operator_PrtoV_Div
+			Case_Operator_PrtoV_Add:
+				add $s6,$s6,$s5
+				# push stack
+				addi $s0,$s0,1
+				sll $s5,$s0,2 # $s5=$s0*4
+				sub $s5,$s4,$s5
+				add $s5,$s5,$sp
+				sw $s6,0($s5)	
+				addi $s1,$s1,1
+				j Loop_PrefixtoValue
+			Case_Operator_PrtoV_Sub:
+				sub $s6,$s6,$s5
+				# push stack
+				addi $s0,$s0,1
+				sll $s5,$s0,2 # $s5=$s0*4
+				sub $s5,$s4,$s5
+				add $s5,$s5,$sp
+				sw $s6,0($s5)
+				addi $s1,$s1,1
+				j Loop_PrefixtoValue		
+			Case_Operator_PrtoV_Mult:
+				mult $s6,$s5
+				mflo $s6
+				# push stack
+				addi $s0,$s0,1
+				sll $s5,$s0,2 # $s5=$s0*4
+				sub $s5,$s4,$s5
+				add $s5,$s5,$sp
+				sw $s6,0($s5)
+				addi $s1,$s1,1
+				j Loop_PrefixtoValue	
+			Case_Operator_PrtoV_Div:
+				div $s6,$s5
+				mflo $s6
+				# push stack
+				addi $s0,$s0,1
+				sll $s5,$s0,2 # $s5=$s0*4
+				sub $s5,$s4,$s5
+				add $s5,$s5,$sp
+				sw $s6,0($s5)		
+				addi $s1,$s1,1
+				j Loop_PrefixtoValue	
+		Case_Operand_PrtoV:
+			li $s5,0
+			Loop_Operand_PrtoV:
+				add $s3,$s1,$a0
+				lb $s3,0($s3)
+				blt $s3,'0',Break_Loop_Operand_PrtoV
+				bgt $s3,'9',Break_Loop_Operand_PrtoV
+				# store in number
+				add $s6,$s5,$s2
+				sb $s3,0($s6)
+				addi $s5,$s5,1
+				addi $s1,$s1,1
+				j Loop_Operand_PrtoV
+				Break_Loop_Operand_PrtoV:
+					
+					addi $sp,$sp,-12
+					sw $ra,8($sp)
+					sw $a0,4($sp)
+					sw $v0,0($sp)
+
+					la $a0,number
+					li $s6,'\n'
+					add $s5,$s5,$a0
+					sb $s6,0($s5)
+					jal ToInt
+					addi $s6,$v0,0
+
+					lw $v0,0($sp)
+					lw $a0,4($sp)
+					lw $ra,8($sp)
+					addi $sp,$sp,12
+					# push stack		
+					addi $s0,$s0,1	
+					sll $s5,$s0,2 # $s5=$s0*4
+					sub $s5,$s4,$s5
+					add $s5,$s5,$sp
+					sw $s6,0($s5)
+					
+				
+					
+					
+					
+					sb $0,0($s2) # clear number
+					j Loop_PrefixtoValue
+		Break_Loop_PrefixtoValue:
+			# Pop stack
+			sll $s5,$s0,2 # $s5=$s0*4
+			sub $s5,$s4,$s5
+			add $s5,$s5,$sp
+			lw $s5,0($s5)
+			addi $s0,$s0,-1
+
+			addi $v0,$s5,0
+
+			addi $sp,$sp,1024
+			
+			lw $s6,0($sp)	
+			lw $s5,4($sp)
+			lw $s4,8($sp)
+			lw $s3,12($sp)
+			lw $s2,16($sp)
+			lw $s1,20($sp)
+			lw $s0,24($sp)
+			addi $sp,$sp,28
+
+			jr $ra		
+	
 Endmain:
 
 
