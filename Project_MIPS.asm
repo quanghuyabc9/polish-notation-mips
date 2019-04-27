@@ -1,56 +1,388 @@
 .data
-infix: .space 256
-postfix: .space 256
-prefix: .space 256
-number: .space 256 # use for store a number
-postfixfile: .asciiz "postfix.txt"
-prefixfile: .asciiz "prefix.txt"
+	infix: .space 256
+	postfix: .space 256
+	prefix: .space 256
+
+	file_input: .asciiz "E:/Doc/AssemblyLanguage/input.txt"
+	file_postfix: .asciiz "E:/Doc/AssemblyLanguage/postfix.txt"
+	file_prefix: .asciiz "E:/Doc/AssemblyLanguage/prefix.txt"
+	file_result: .asciiz "E:/Doc/AssemblyLanguage/result.txt"
+
+	newline: .asciiz "\r\n"
+	number: .space 256 # use for store a string number
+	buffer: .space 12800
 .text
 .globl main
 
 main:
-
-	la $a0,infix
-	li $a1,256
-	li $v0,8
-	syscall
+	#la $a0,infix
+	#li $a1,256
+	#li $v0,8
+	#syscall
 #--------------------------------------------------------
 	# Infix->Postfix->Value
-	la $v0,postfix
-	jal InfixtoPostfix
+	#la $v0,postfix
+	#jal InfixtoPostfix
 
-	la $a0,postfix
-	li $v0,4
-	syscall
+	#la $a0,postfix
+	#li $v0,4
+	#syscall
 
-	jal PostfixtoValue
-	addi $a0,$v0,0
-	li $v0,1
-	syscall
+	#jal PostfixtoValue
+	#addi $a0,$v0,0
+	#li $v0,1
+	#syscall
 
-	li $a0,'\n'
-	li $v0,11
-	syscall
+	#li $a0,'\n'
+	#li $v0,11
+	#syscall
 #--------------------------------------------------------
 	# Infix->Prefix->Value
-	la $a0,infix
-	la $v0,prefix
+	#la $a0,infix
+	#la $v0,prefix
 
-	jal InfixtoPrefix
+	#jal InfixtoPrefix
 
-	la $a0,prefix
-	li $v0,4
-	syscall
+	#la $a0,prefix
+	#li $v0,4
+	#syscall
 	
-	jal PrefixtoValue
-	addi $a0,$v0,0
-	li $v0,1
-	syscall
-	j Endmain
+	#jal PrefixtoValue
+	#addi $a0,$v0,0
+	#li $v0,1
+	#syscall
+	#j Endmain
+#----------------------------------------------------------
+	# Readfile: 
+	# Using file_input as filename
+	# Read from that file and save in buffer
+	# Return $v0 containing number of character read
+	jal ReadFile
 
+	# WriteFile:
+	# Using filename_output to find a file
+	# $a0 is input length of buffer
+	move $a0, $v0
+	jal WriteFile
+
+	# Exit
+	li $v0,10
+	syscall
 #************************FUNCTION*************************
 
+# Readfile: 
+# Using file_input as filename
+# Read from that file and save in buffer
+# Return $v0 containing number of character read
+ReadFile:
+	addi $sp,$sp,-20
+	sw $a0,16($sp)
+	sw $a1,12($sp)
+	sw $a2,8($sp)
+	sw $s0,4($sp)
+	sw $s1,0($sp)
 
+	# Open File 
+	la $a0,file_input
+	li $a1,0 # 0: read, 1: write
+	li $a2,0
+	li $v0,13
+	syscall 
+	
+	move $s0,$v0 # File decriptor
+
+	# Read File
+	move $a0,$s0
+	la $a1, buffer
+	li $a2, 12800
+	li $v0,14
+	syscall
+	
+	move $s1,$v0 # Number of character read
+
+	# Close File
+	move $a0,$s0
+	li $v0,16
+	syscall
+
+	move $v0,$s1
+	
+	lw $s1,0($sp)
+	lw $s0,4($sp)
+	lw $a2,8($sp)
+	lw $a1,12($sp)
+	lw $a0,16($sp)
+	addi $sp,$sp,20
+	
+	jr $ra
+# WriteFile:
+# Using filename_output to find a file
+# $a0 is input length of buffer
+WriteFile:
+	addi $sp,$sp,-48
+	sw $a0,44($sp)
+	sw $a1,40($sp)
+	sw $a2,36($sp)
+	sw $v0,32($sp)
+	sw $s0,28($sp)
+	sw $s1,24($sp)
+	sw $s2,20($sp)
+	sw $s3,16($sp)
+	sw $s4,12($sp)
+	sw $s5,8($sp)
+	sw $s6,4($sp)
+	sw $s7,0($sp)
+
+	move $s0,$a0 # $s0: length of buffer
+
+	# Open file
+	la $a0,file_postfix
+	li $a1,1 # 0: read, 1: write
+	li $a2,0
+	li $v0,13
+	syscall
+	move $t0,$v0 # $t0: file decriptor of postfix file 
+
+	la $a0,file_prefix
+	li $a1,1 # 0: read, 1: write
+	li $a2,0
+	li $v0,13
+	syscall
+	move $t1,$v0 # $t1: file decriptor of prefix file 
+
+	la $a0,file_result
+	li $a1,1 # 0: read, 1: write
+	li $a2,0
+	li $v0,13
+	syscall
+	move $t2,$v0 # $t2: file decriptor of result file 
+	
+	# Initialize buffer
+	la $s1,buffer
+	li $s2,0 # index of buffer
+
+	# Append '\n' at the end of buffer
+	li $s3,'\n'
+	add $s4,$s0,$s1
+	sb $s3,0($s4)
+	addi $s0,$s0,1
+	
+	# Initialize infix
+	la $s3,infix
+	li $s4,0 # index of infix
+	Loop_WriteFile:
+		beq $s2,$s0,Break_Loop_WriteFile
+
+		add $s5,$s1,$s2
+		lb $s5,0($s5)
+
+		# ignore '\r'
+		beq $s5,13,Ignore_Loop_WriteFile
+		
+		# load that character into infix
+		add $s6,$s3,$s4
+		sb $s5,0($s6)
+		addi $s4,$s4,1
+
+		beq $s5,'\n',NewLine_Loop_WriteFile
+		Ignore_Loop_WriteFile:
+		addi $s2,$s2,1
+		j Loop_WriteFile
+		NewLine_Loop_WriteFile:	
+			# print infix
+			la $a0,infix
+			li $v0,4
+			syscall
+			#------------------
+			addi $sp,$sp,-4
+			sw $ra,0($sp)
+
+			la $a0,infix
+			la $v0,postfix
+			jal InfixtoPostfix
+			
+			# write to postfix file
+			la $a0,postfix
+			jal Strlen # $v0 is now containing lenth of postfix
+			
+			move $a0,$t0
+			la $a1,postfix
+			move $a2,$v0
+			li $v0,15
+			syscall
+			
+			la $a1,newline
+			li $a2,2
+			li $v0,15
+			syscall
+
+			la $a0,infix
+			la $v0,prefix
+			jal InfixtoPrefix
+			# write to prefix file
+			la $a0,prefix
+			jal Strlen # $v0 is now containing lenth of postfix
+			
+			move $a0,$t1
+			la $a1,prefix
+			move $a2,$v0
+			li $v0,15
+			syscall
+			
+			la $a1,newline
+			li $a2,2
+			li $v0,15
+			syscall
+			
+			# write to result file
+			la $a0,postfix
+			jal PostfixtoValue # $v0 is result of the calculation from postfix
+			# -> Convert int to string
+			la $a0,number
+			sb $0,0($a0)
+
+			move $a0,$v0
+			jal ToString
+			
+			la $a0,number
+			jal Strlen # $v0 is now containing lenth of string number
+			
+			move $a0,$t2
+			la $a1,number
+			move $a2,$v0
+			li $v0,15
+			syscall
+			
+			sb $0,0($a1)
+
+			la $a1,newline
+			li $a2,2
+			li $v0,15
+			syscall
+			
+			
+			
+			lw $ra,0($sp)
+			addi $sp,$sp,4
+			#-------------------
+			sb $0,0($s3)
+			li $s4,0
+			addi $s2,$s2,1
+			j Loop_WriteFile
+		Break_Loop_WriteFile:
+			# Close File
+			move $a0,$t0
+			li $v0,16
+			syscall
+	
+			move $a0,$t1
+			syscall
+			
+			move $a0,$t2
+			syscall
+			
+			lw $s7,0($sp)
+			lw $s6,4($sp)
+			lw $s5,8($sp)
+			lw $s4,12($sp)
+			lw $s3,16($sp)
+			lw $s2,20($sp)
+			lw $s1,24($sp)
+			lw $s0,28($sp)
+			lw $v0,32($sp)
+			lw $a2,36($sp)
+			lw $a1,40($sp)
+			lw $a0,44($sp)	
+			addi $sp,$sp,48
+			
+			jr $ra
+# ToString:
+# $a0 is input integer number
+# $v0 is output string number	
+ToString:
+	addi $sp,$sp,-20
+	sw $s0,16($sp)
+	sw $s1,12($sp)
+	sw $s2,8($sp)
+	sw $s3,4($sp)
+	sw $s4,0($sp)
+	
+	li $s4,10 # const
+	
+	la $v0,number
+	li $s1,0 # index of number
+	
+	move $s0,$a0 
+	beqz $s0,Case_Zero
+	bltz $s0,Case_Negative
+	bgtz $s0,Case_Positive	
+	Case_Zero:
+		add $s2,$s1,$v0
+		li $s3,'0'
+		sb $s3,0($s2)	
+
+		addi $s1,$s1,1
+		j Exit_toString
+	Case_Negative:
+		# $s0=-$s0
+		li $s2,-1
+		mult $s0,$s2
+		mflo $s0 
+		
+		Loop_Case_Negative:
+			beqz $s0,Break_Loop_Case_Negative
+			div $s0,$s4
+			mflo $s0
+			mfhi $s3
+			add $s2,$s1,$v0
+			addi $s3,$s3,48
+			sb $s3,0($s2)
+			
+			addi $s1,$s1,1
+			j Loop_Case_Negative
+		Break_Loop_Case_Negative:
+		li $s3,'-'
+		add $s2,$s1,$v0
+		sb $s3,0($s2)
+
+		addi $s1,$s1,1
+		j Exit_toString
+	Case_Positive:
+		Loop_Case_Positive:
+			beqz $s0,Exit_toString
+			div $s0,$s4
+			mflo $s0
+			mfhi $s3
+			add $s2,$s1,$v0
+			addi $s3,$s3,48
+			sb $s3,0($s2)
+			
+			addi $s1,$s1,1
+			j Loop_Case_Positive
+	Exit_toString:
+		
+		li $s3,'\n'
+		add $s2,$s1,$v0
+		sb $s3,0($s2)
+		
+		addi $sp,$sp,-8
+		sw $ra,4($sp)
+		sw $a0,0($sp)
+
+		la $a0,number
+		jal ReverseString
+
+		lw $a0,0($sp)
+		lw $ra,4($sp)
+		addi $sp,$sp,8
+
+		lw $s4,0($sp)
+		lw $s3,4($sp)
+		lw $s2,8($sp)
+		lw $s1,12($sp)
+		lw $s0,16($sp)
+		addi $sp,$sp,20
+		jr $ra
 # InfixtoPostfix:
 # $a0 is our input infix, $v0 is input postfix
 # you should save address of postfix before use this function
@@ -417,58 +749,6 @@ Modifie:
 		lw $s0,28($sp)
 		addi $sp,$sp,32
 		jr $ra	
-
-WriteFile:
-#write postfix file
-
-	la $a0, postfixfile
-
-	#open file for write-only
-	li $v0, 13
-	addi $a1, $0, 1
-	addi $a2, $0, 0
-	syscall
-
-	add $s0, $v0, $0
-
-	#write file
-	li $v0, 15
-	add $a0, $s0, $0
-	la $a1, postfix
-	li $a2, 256
-	syscall
-
-	#close file
-	li $v0, 16
-	move $a0, $s0
-	syscall
-
-#write prefix file
-
-	la $a0, prefixfile
-
-	#open file for write-only
-	li $v0, 13
-	addi $a1, $0, 1
-	addi $a2, $0, 0
-	syscall
-
-	add $s0, $v0, $0
-
-	#write file
-	li $v0, 15
-	add $a0, $s0, $0
-	la $a1, prefix
-	li $a2, 256
-	syscall
-
-	#close file
-	li $v0, 16
-	move $a0, $s0
-	syscall
-
-	jr $ra
-
 # PostfixtoValue
 # $a0 is input string
 # $v0 is result (integer)
